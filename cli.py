@@ -34,31 +34,6 @@ def get_new_data() -> dict:
     }
 
 
-def load_data(filename: str) -> dict:
-    """
-    load_data opens the specified json file and returns it's content.
-    In case the file does not exist, an empty dictionary is returned.
-    """
-    try:
-        with open(filename, "r") as f:
-            data = json.load(f)
-            # convert team and employee sub-dicts to dicts with default
-            data["team"] = defaultdict(list, data["team"])
-            data["employee"] = defaultdict(list, data["employee"])
-    except FileNotFoundError:
-        data = get_new_data()
-    return data
-
-
-def persist_data(filename: str, data: dict):
-    """
-    persist_data writes the dictionary provided to the speciefied file.
-    If the file already exists, it is overwritten.
-    """
-    with open(filename, "w") as f:
-        f.write(json.dumps(data))
-
-
 def _is_status(value: str):
     """
     Helper function to determine the provided value is of type 'Status'
@@ -205,50 +180,42 @@ class LocalStorage(Storage):
             if len(self.data["team"][deletedGoal.team]) < 1:
                 self.data["team"].pop(deletedGoal.team)
 
+    def _list_goals(self, task_target: str, target: str):
+        """
+        list_tasks is an abstraction that supports task retrieval per team or employee
+        """
+        if task_target not in self.data[target].keys():
+            print(f"No tasks for {target}: `{task_target}`")
+            goals = []
+        else:
+            goals = defaultdict(list)
+            targets =self.data[target].get(task_target, list())
+            for goal_id in targets:
+                goal = Goal(**self.data["goals"][str(goal_id)])
+                goals[Status[_is_status(goal.status)]].append(goal)
+        return goals
+
     def get_employee_goals(self, employee:str):
-        return _list_goals(data=self.data, task_target=employee, target="employee")
+        return self._list_goals(task_target=employee, target="employee")
 
     def get_team_goals(self, team:str):
-        return _list_goals(data=self.data, task_target=team, target="team")
+        return self._list_goals(task_target=team, target="team")
 
 
-def _create_goal(employee: str, goal: str, team: str) -> Goal:
-    goal_id = id(employee + goal + team)
-    new_goal = Goal(
-        goal_id=goal_id,
-        employee=employee,
-        description=goal,
-        team=team,
-        created_at=str(datetime.now()),
-        status=Status.NOT_STARTED,
-    )
-    return new_goal
-
-
-def add_goal(cmd: Namespace):
+def add_goal(storage: Storage, cmd: Namespace):
     """
     Create a new goal and persist it to storage
     """
-    new_goal = _create_goal(
-        employee=cmd.employee, goal=cmd.description, team=cmd.team
+    goal_id = id(cmd.employee + cmd.description + cmd.team)
+    new_goal = Goal(
+        goal_id=goal_id,
+        employee=cmd.employee,
+        description=cmd.description,
+        team=cmd.team,
+        created_at=str(datetime.now()),
+        status=Status.NOT_STARTED,
     )
     storage.add_goal(new_goal)
-
-
-def _list_goals(data: dict, task_target: str, target: str):
-    """
-    list_tasks is an abstraction that supports task retrieval per team or employee
-    """
-    if task_target not in data[target].keys():
-        print(f"No tasks for {target}: `{task_target}`")
-        goals = []
-    else:
-        goals = defaultdict(list)
-        targets = data[target].get(task_target, list())
-        for goal_id in targets:
-            goal = Goal(**data["goals"][str(goal_id)])
-            goals[Status[_is_status(goal.status)]].append(goal)
-    return goals
 
 
 def print_employee_goals(employee_goals: dict):
@@ -260,11 +227,11 @@ def print_employee_goals(employee_goals: dict):
                 print(f"- ({goal.goal_id}) {goal.description}, {goal.team}")
 
 
-def update_goal_status(cmd: Namespace):
+def update_goal_status(storage: Storage, cmd: Namespace):
     storage.update_goal_status(goal_id=cmd.id, new_status=cmd.status)
 
 
-def delete_goal_by_id(goal_id:int):
+def delete_goal_by_id(storage: Storage, goal_id:int):
     storage.delete_goal(goal_id=goal_id)
 
 
@@ -308,14 +275,14 @@ if __name__ == "__main__":
         if execute:
             match cmd.user_command:
                 case "add":
-                    add_goal(cmd)
+                    add_goal(storage=storage, cmd=cmd)
                 case "list":
                     goals = storage.get_employee_goals(employee=cmd.employee)
                     print_employee_goals(employee_goals=goals)
                 case "update":
-                    update_goal_status(cmd)
+                    update_goal_status(storage=storage, cmd=cmd)
                 case "delete":
-                    delete_goal_by_id(goal_id=cmd.id)
+                    delete_goal_by_id(storage=storage, goal_id=cmd.id)
                 case "summary":
                     goals = storage.get_team_goals(team=cmd.team)
                     print_team_goals(team_goals=goals)
