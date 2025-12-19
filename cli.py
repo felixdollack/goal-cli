@@ -9,6 +9,7 @@ from datetime import datetime
 from enum import Enum
 import json
 from shlex import split as split_shell_arguments
+from abc import ABC, abstractmethod
 
 DB = "data.json"
 
@@ -122,7 +123,96 @@ class Goal:
     status: Status
 
 
-def create_goal(employee: str, goal: str, team: str) -> Goal:
+class Storage(ABC):
+    """
+    Abstract class (interface) over data storage
+    """
+    @abstractmethod
+    def add_goal(self, goal: Goal):
+        pass
+
+    @abstractmethod
+    def update_goal_status(self, goal_id: int, new_status: Status):
+        pass
+
+    @abstractmethod
+    def delete_goal(self, goal_id: int):
+        pass
+
+    @abstractmethod
+    def get_employee_goals(self, employee:str):
+        pass
+
+    @abstractmethod
+    def get_team_goals(self, employee:str):
+        pass
+
+
+class LocalStorage(Storage):
+    """
+    Local data store (JSON) implementation
+    """
+    def __init__(self, filepath:str):
+        print(type(self))
+        self.DB = filepath
+        self.data = self._load_data()
+
+    def _load_data(self) -> dict:
+        """
+        load_data opens the specified json file and returns it's content.
+        In case the file does not exist, an empty dictionary is returned.
+        """
+        try:
+            with open(self.DB, "r") as f:
+                data = json.load(f)
+                # convert team and employee sub-dicts to dicts with default
+                data["team"] = defaultdict(list, data["team"])
+                data["employee"] = defaultdict(list, data["employee"])
+        except FileNotFoundError:
+            data = get_new_data()
+        return data
+
+    def persist_data(self):
+        """
+        persist_data writes the dictionary provided to the speciefied file.
+        If the file already exists, it is overwritten.
+        """
+        with open(self.DB, "w") as f:
+            f.write(json.dumps(self.data))
+
+    def add_goal(self, goal: Goal):
+        self.data["goals"][str(goal.goal_id)] = asdict(goal)
+        self.data["team"][goal.team].append(goal.goal_id)
+        self.data["employee"][goal.employee].append(goal.goal_id)
+
+    def update_goal_status(self, goal_id: int, new_status: Status):
+        if self.data["goals"].get(str(goal_id), None):
+            self.data["goals"][str(goal_id)]["status"] = Status[new_status]
+
+    def delete_goal(self, goal_id: int):
+        # if goal_id in list of goals
+        if self.data["goals"].get(str(goal_id), None):
+            # remove goal from goal list
+            deletedGoal = Goal(**self.data["goals"].pop(str(goal_id)))
+
+            # remove goal_id from employee goal list and remove employee if no more goals
+            self.data["employee"][deletedGoal.employee].remove(deletedGoal.goal_id)
+            if len(self.data["employee"][deletedGoal.employee]) < 1:
+                self.data["employee"].pop(deletedGoal.employee)
+
+            # remove goal_id from team goal list and remove team if no more goals
+            self.data["team"][deletedGoal.team].remove(deletedGoal.goal_id)
+            if len(self.data["team"][deletedGoal.team]) < 1:
+                self.data["team"].pop(deletedGoal.team)
+
+    def get_employee_goals(self, employee:str):
+        return _list_goals(data=self.data, task_target=employee, target="employee")
+
+    def get_team_goals(self, team:str):
+        return _list_goals(data=self.data, task_target=team, target="team")
+
+
+def _create_goal(employee: str, goal: str, team: str) -> Goal:
     goal_id = id(employee + goal + team)
     new_goal = Goal(
         goal_id=goal_id,
@@ -133,6 +223,16 @@ def create_goal(employee: str, goal: str, team: str) -> Goal:
         status=Status.NOT_STARTED,
     )
     return new_goal
+
+
+def add_goal(cmd: Namespace):
+    """
+    Create a new goal and persist it to storage
+    """
+    new_goal = _create_goal(
+        employee=cmd.employee, goal=cmd.description, team=cmd.team
+    )
+    storage.add_goal(new_goal)
 
 
 def _list_goals(data: dict, task_target: str, target: str):
@@ -151,8 +251,7 @@ def _list_goals(data: dict, task_target: str, target: str):
     return goals
 
 
-def list_tasks_of(data: dict, employee: str):
-    employee_goals = _list_goals(data=data, task_target=employee, target="employee")
+def print_employee_goals(employee_goals: dict):
     if len(employee_goals) > 0:
         for state in [Status.NOT_STARTED, Status.IN_PROGRESS, Status.COMPLETED]:
             if len(employee_goals[state]) > 0:
@@ -161,34 +260,15 @@ def list_tasks_of(data: dict, employee: str):
                 print(f"- ({goal.goal_id}) {goal.description}, {goal.team}")
 
 
-def update_goal_with_id(data: dict, goal_id: int, new_status: Status) -> dict:
-    # if goal_id in list of goals set new status
-    if data["goals"].get(str(goal_id), None):
-        data["goals"][str(goal_id)]["status"] = Status[new_status]
-    return data
+def update_goal_status(cmd: Namespace):
+    storage.update_goal_status(goal_id=cmd.id, new_status=cmd.status)
 
 
-def delete_goal_with_id(data: dict, goal_id: int) -> dict:
-    # if goal_id in list of goals
-    if data["goals"].get(str(goal_id), None):
-        # remove goal from goal list
-        deletedGoal = Goal(**data["goals"].pop(str(goal_id)))
-
-        # remove goal_id from employee goal list and remove employee if no more goals
-        data["employee"][deletedGoal.employee].remove(deletedGoal.goal_id)
-        if len(data["employee"][deletedGoal.employee]) < 1:
-            data["employee"].pop(deletedGoal.employee)
-
-        # remove goal_id from team goal list and remove team if no more goals
-        data["team"][deletedGoal.team].remove(deletedGoal.goal_id)
-        if len(data["team"][deletedGoal.team]) < 1:
-            data["team"].pop(deletedGoal.team)
-
-    return data
+def delete_goal_by_id(goal_id:int):
+    storage.delete_goal(goal_id=goal_id)
 
 
-def summarize_goals_for_team(data: dict, team: str):
-    team_goals = _list_goals(data=data, task_target=team, target="team")
+def print_team_goals(team_goals: dict):
     if len(team_goals) > 0:
         for state in [Status.NOT_STARTED, Status.IN_PROGRESS, Status.COMPLETED]:
             print(state.name)
@@ -199,7 +279,7 @@ def summarize_goals_for_team(data: dict, team: str):
 
 
 if __name__ == "__main__":
-    data = load_data(DB)
+    storage = LocalStorage(filepath=DB)
     parser = get_input_parser()
     print_welcome()
     while True:
@@ -228,24 +308,18 @@ if __name__ == "__main__":
         if execute:
             match cmd.user_command:
                 case "add":
-                    new_goal = create_goal(
-                        employee=cmd.employee, goal=cmd.description, team=cmd.team
-                    )
-
-                    data["goals"][str(new_goal.goal_id)] = asdict(new_goal)
-                    data["team"][cmd.team].append(new_goal.goal_id)
-                    data["employee"][cmd.employee].append(new_goal.goal_id)
+                    add_goal(cmd)
                 case "list":
-                    list_tasks_of(data=data, employee=cmd.employee)
+                    goals = storage.get_employee_goals(employee=cmd.employee)
+                    print_employee_goals(employee_goals=goals)
                 case "update":
-                    data = update_goal_with_id(
-                        data=data, goal_id=cmd.id, new_status=cmd.status
-                    )
+                    update_goal_status(cmd)
                 case "delete":
-                    data = delete_goal_with_id(data=data, goal_id=cmd.id)
+                    delete_goal_by_id(goal_id=cmd.id)
                 case "summary":
-                    summarize_goals_for_team(data=data, team=cmd.team)
+                    goals = storage.get_team_goals(team=cmd.team)
+                    print_team_goals(team_goals=goals)
                 case _:
                     pass
 
-    persist_data(DB, data)
+    storage.persist_data()
