@@ -102,6 +102,7 @@ class Storage(ABC):
     """
     Abstract class (interface) over data storage
     """
+
     @abstractmethod
     def add_goal(self, goal: Goal):
         pass
@@ -115,11 +116,11 @@ class Storage(ABC):
         pass
 
     @abstractmethod
-    def get_employee_goals(self, employee:str):
+    def get_employee_goals(self, employee: str):
         pass
 
     @abstractmethod
-    def get_team_goals(self, employee:str):
+    def get_team_goals(self, employee: str):
         pass
 
 
@@ -127,7 +128,8 @@ class LocalStorage(Storage):
     """
     Local data store (JSON) implementation
     """
-    def __init__(self, filepath:str):
+
+    def __init__(self, filepath: str):
         print(type(self))
         self.DB = filepath
         self.data = self._load_data()
@@ -189,16 +191,16 @@ class LocalStorage(Storage):
             goals = []
         else:
             goals = defaultdict(list)
-            targets =self.data[target].get(task_target, list())
+            targets = self.data[target].get(task_target, list())
             for goal_id in targets:
                 goal = Goal(**self.data["goals"][str(goal_id)])
                 goals[Status[_is_status(goal.status)]].append(goal)
         return goals
 
-    def get_employee_goals(self, employee:str):
+    def get_employee_goals(self, employee: str):
         return self._list_goals(task_target=employee, target="employee")
 
-    def get_team_goals(self, team:str):
+    def get_team_goals(self, team: str):
         return self._list_goals(task_target=team, target="team")
 
 
@@ -231,7 +233,7 @@ def update_goal_status(storage: Storage, cmd: Namespace):
     storage.update_goal_status(goal_id=cmd.id, new_status=cmd.status)
 
 
-def delete_goal_by_id(storage: Storage, goal_id:int):
+def delete_goal_by_id(storage: Storage, goal_id: int):
     storage.delete_goal(goal_id=goal_id)
 
 

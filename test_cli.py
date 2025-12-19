@@ -9,13 +9,14 @@ TEST_DATA = {
             "description": "Goal description",
             "employee": "User",
             "team": "One",
-            "created_at": '2025-12-19 19:30:21.048146',
+            "created_at": "2025-12-19 19:30:21.048146",
             "status": "In Progress",
         }
     },
     "team": {"One": [12]},
-    "employee": {"User": [12]}
+    "employee": {"User": [12]},
 }
+
 
 def test_is_status():
     result = cli._is_status("not started")
@@ -32,11 +33,14 @@ def test_is_status():
 
 
 def test_create_goal():
-    storage = cli.LocalStorage('')
+    storage = cli.LocalStorage("")
     employee = "User"
     description = "Smth To Do"
     team = "Group"
-    cli.add_goal(storage=storage, cmd=Namespace(employee=employee, description=description, team=team))
+    cli.add_goal(
+        storage=storage,
+        cmd=Namespace(employee=employee, description=description, team=team),
+    )
     goal = cli.Goal(**storage.data["goals"][list(storage.data["goals"].keys())[0]])
     assert goal.employee == employee
     assert goal.description == description
@@ -45,7 +49,7 @@ def test_create_goal():
 
 
 def test_list_goals():
-    storage = cli.LocalStorage('')
+    storage = cli.LocalStorage("")
     storage.data = {"team": {}}
     goals = storage.get_team_goals(team="One")
     assert len(goals) == 0
@@ -56,7 +60,7 @@ def test_list_goals():
 
 
 def test_update_goal():
-    storage = cli.LocalStorage('')
+    storage = cli.LocalStorage("")
     storage.data = TEST_DATA
     cli.update_goal_status(storage=storage, cmd=Namespace(id=12, status="COMPLETED"))
     assert storage.data["goals"]["12"]["status"].name == "COMPLETED"
@@ -68,7 +72,7 @@ def test_update_goal():
 
 
 def test_delete_goal():
-    storage = cli.LocalStorage('')
+    storage = cli.LocalStorage("")
     storage.data = TEST_DATA
     cli.delete_goal_by_id(storage=storage, goal_id=12)
     assert len(storage.data["goals"]) == 0
