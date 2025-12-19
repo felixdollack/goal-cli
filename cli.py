@@ -226,31 +226,26 @@ if __name__ == "__main__":
             execute = True
 
         if execute:
-            print_data = False
             match cmd.user_command:
                 case "add":
                     new_goal = create_goal(
                         employee=cmd.employee, goal=cmd.description, team=cmd.team
                     )
+
                     data["goals"][str(new_goal.goal_id)] = asdict(new_goal)
                     data["team"][cmd.team].append(new_goal.goal_id)
                     data["employee"][cmd.employee].append(new_goal.goal_id)
-
-                    print_data = True
                 case "list":
                     list_tasks_of(data=data, employee=cmd.employee)
                 case "update":
                     data = update_goal_with_id(
                         data=data, goal_id=cmd.id, new_status=cmd.status
                     )
-                    print_data = True
                 case "delete":
                     data = delete_goal_with_id(data=data, goal_id=cmd.id)
-                    print_data = True
                 case "summary":
                     summarize_goals_for_team(data=data, team=cmd.team)
                 case _:
                     pass
-            if print_data:
-                print(data)
+
     persist_data(DB, data)
