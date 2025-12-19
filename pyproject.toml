@@ -1,7 +1,7 @@
 [project]
-name = "cli"
+name = "goal-cli"
 version = "0.1.0"
-description = "Add your description here"
+description = "Simple command-line Goal-Setting & Progress Tracker"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
