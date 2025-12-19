@@ -2,6 +2,21 @@ from argparse import ArgumentTypeError
 import cli
 import pytest
 
+TEST_DATA = {
+    "goals": {
+        "12": {
+            "goal_id": 12,
+            "description": "Goal description",
+            "employee": "User",
+            "team": "One",
+            "created_at": '2025-12-19 19:30:21.048146',
+            "status": "In Progress",
+        }
+    },
+    "team": {"One": [12]},
+    "employee": {"User": [12]}
+}
+
 
 def test_is_status():
     result = cli._is_status("not started")
@@ -33,19 +48,13 @@ def test_list_goals():
     goals = cli._list_goals(data=data, task_target="One", target="team")
     assert len(goals) == 0
 
-    data = {
-        "goals": {"12": {"goal_id": 12, "status": "In Progress"}},
-        "team": {"One": [12]},
-    }
+    data = TEST_DATA
     goals = cli._list_goals(data=data, task_target="One", target="team")
     assert len(goals) == 1
 
 
 def test_update_goal():
-    data = {
-        "goals": {"12": {"goal_id": 12, "status": "In Progress"}},
-        "team": {"One": [12]},
-    }
+    data = TEST_DATA
     updated = cli.update_goal_with_id(data=data, goal_id=12, new_status="COMPLETED")
     assert updated["goals"]["12"]["status"].name == "COMPLETED"
 
@@ -55,18 +64,7 @@ def test_update_goal():
 
 
 def test_delete_goal():
-    data = {
-        "goals": {
-            "12": {
-                "goal_id": 12,
-                "employee": "User",
-                "team": "One",
-                "status": "In Progress",
-            }
-        },
-        "team": {"One": [12]},
-        "employee": {"User": [12]},
-    }
+    data = TEST_DATA
     updated = cli.delete_goal_with_id(data=data, goal_id=12)
     assert len(updated["goals"]) == 0
     assert len(updated["team"]) == 0

@@ -146,8 +146,8 @@ def _list_goals(data: dict, task_target: str, target: str):
         goals = defaultdict(list)
         targets = data[target].get(task_target, list())
         for goal_id in targets:
-            goal = data["goals"][str(goal_id)]
-            goals[Status[_is_status(goal["status"])]].append(goal)
+            goal = Goal(**data["goals"][str(goal_id)])
+            goals[Status[_is_status(goal.status)]].append(goal)
     return goals
 
 
@@ -158,7 +158,7 @@ def list_tasks_of(data: dict, employee: str):
             if len(employee_goals[state]) > 0:
                 print(f"{state.name}:")
             for goal in employee_goals[state]:
-                print(f"- ({goal['goal_id']}) {goal['description']}, {goal['team']}")
+                print(f"- ({goal.goal_id}) {goal.description}, {goal.team}")
 
 
 def update_goal_with_id(data: dict, goal_id: int, new_status: Status) -> dict:
@@ -172,17 +172,17 @@ def delete_goal_with_id(data: dict, goal_id: int) -> dict:
     # if goal_id in list of goals
     if data["goals"].get(str(goal_id), None):
         # remove goal from goal list
-        deletedGoal = data["goals"].pop(str(goal_id))
+        deletedGoal = Goal(**data["goals"].pop(str(goal_id)))
 
         # remove goal_id from employee goal list and remove employee if no more goals
-        data["employee"][deletedGoal["employee"]].remove(deletedGoal["goal_id"])
-        if len(data["employee"][deletedGoal["employee"]]) < 1:
-            data["employee"].pop(deletedGoal["employee"])
+        data["employee"][deletedGoal.employee].remove(deletedGoal.goal_id)
+        if len(data["employee"][deletedGoal.employee]) < 1:
+            data["employee"].pop(deletedGoal.employee)
 
         # remove goal_id from team goal list and remove team if no more goals
-        data["team"][deletedGoal["team"]].remove(deletedGoal["goal_id"])
-        if len(data["team"][deletedGoal["team"]]) < 1:
-            data["team"].pop(deletedGoal["team"])
+        data["team"][deletedGoal.team].remove(deletedGoal.goal_id)
+        if len(data["team"][deletedGoal.team]) < 1:
+            data["team"].pop(deletedGoal.team)
 
     return data
 
@@ -195,7 +195,7 @@ def summarize_goals_for_team(data: dict, team: str):
             if len(team_goals[state]) < 1:
                 print("- N/A")
             for goal in team_goals[state]:
-                print(f"- {goal['description']}, {goal['employee']}")
+                print(f"- {goal.description}, {goal.employee}")
 
 
 if __name__ == "__main__":
