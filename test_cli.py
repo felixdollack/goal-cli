@@ -1,4 +1,4 @@
-from argparse import ArgumentTypeError
+from argparse import ArgumentTypeError, Namespace
 import cli
 import pytest
 
@@ -17,7 +17,6 @@ TEST_DATA = {
     "employee": {"User": [12]}
 }
 
-
 def test_is_status():
     result = cli._is_status("not started")
     assert result == "NOT_STARTED"
@@ -33,10 +32,12 @@ def test_is_status():
 
 
 def test_create_goal():
+    storage = cli.LocalStorage('')
     employee = "User"
     description = "Smth To Do"
     team = "Group"
-    goal = cli.create_goal(employee=employee, goal=description, team=team)
+    cli.add_goal(storage=storage, cmd=Namespace(employee=employee, description=description, team=team))
+    goal = cli.Goal(**storage.data["goals"][list(storage.data["goals"].keys())[0]])
     assert goal.employee == employee
     assert goal.description == description
     assert goal.team == team
@@ -44,32 +45,37 @@ def test_create_goal():
 
 
 def test_list_goals():
-    data = {"team": {}}
-    goals = cli._list_goals(data=data, task_target="One", target="team")
+    storage = cli.LocalStorage('')
+    storage.data = {"team": {}}
+    goals = storage.get_team_goals(team="One")
     assert len(goals) == 0
 
-    data = TEST_DATA
-    goals = cli._list_goals(data=data, task_target="One", target="team")
+    storage.data = TEST_DATA
+    goals = storage.get_team_goals(team="One")
     assert len(goals) == 1
 
 
 def test_update_goal():
-    data = TEST_DATA
-    updated = cli.update_goal_with_id(data=data, goal_id=12, new_status="COMPLETED")
-    assert updated["goals"]["12"]["status"].name == "COMPLETED"
+    storage = cli.LocalStorage('')
+    storage.data = TEST_DATA
+    cli.update_goal_status(storage=storage, cmd=Namespace(id=12, status="COMPLETED"))
+    assert storage.data["goals"]["12"]["status"].name == "COMPLETED"
 
-    data = {"goals": {}}
-    updated = cli.update_goal_with_id(data=data, goal_id=12, new_status="COMPLETED")
-    assert data == updated
+    storage.data = {"goals": {}}
+    cli.update_goal_status(storage=storage, cmd=Namespace(id=12, status="COMPLETED"))
+    assert len(storage.data) == 1
+    assert len(storage.data["goals"]) == 0
 
 
 def test_delete_goal():
-    data = TEST_DATA
-    updated = cli.delete_goal_with_id(data=data, goal_id=12)
-    assert len(updated["goals"]) == 0
-    assert len(updated["team"]) == 0
-    assert len(updated["employee"]) == 0
+    storage = cli.LocalStorage('')
+    storage.data = TEST_DATA
+    cli.delete_goal_by_id(storage=storage, goal_id=12)
+    assert len(storage.data["goals"]) == 0
+    assert len(storage.data["team"]) == 0
+    assert len(storage.data["employee"]) == 0
 
-    data = {"goals": {}}
-    updated = cli.delete_goal_with_id(data=data, goal_id=12)
-    assert data == updated
+    storage.data = {"goals": {}}
+    cli.delete_goal_by_id(storage=storage, goal_id=12)
+    assert len(storage.data) == 1
+    assert len(storage.data["goals"]) == 0
